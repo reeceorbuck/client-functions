@@ -1,27 +1,18 @@
 /**
  * @module
- * Client-side module that provides the handler proxy for lazy-loading
- * event handlers. This should be loaded in the browser.
+ * Client-side script that provides the handler proxy for lazy-loading
+ * event handlers. This runs automatically when loaded in the browser.
  *
  * @example
  * ```html
- * <script type="module">
- *   import { setupHandlers } from "@reece/client-functions/client";
- *   setupHandlers();
- * </script>
- * ```
- *
- * Or build it into your client bundle:
- * ```ts
- * import { setupHandlers } from "@reece/client-functions/client";
- * setupHandlers();
+ * <script type="module" src="/clientFunctions.js"></script>
  * ```
  */
 
 /**
  * Type for the global handlers proxy object
  */
-export type HandlerProxy = {
+type HandlerProxy = {
   // deno-lint-ignore no-explicit-any
   [key: string]: (...args: any[]) => void | Promise<void>;
 };
@@ -34,7 +25,7 @@ export type HandlerProxy = {
  * @param basePath - Base path for loading handler scripts (default: ".")
  * @returns The proxy object for handlers
  */
-export function createHandlerProxy(basePath = "."): HandlerProxy {
+function createHandlerProxy(basePath = "."): HandlerProxy {
   return new Proxy<HandlerProxy>({} as HandlerProxy, {
     get(target, prop, receiver): ((...args: unknown[]) => unknown) | undefined {
       if (typeof prop === "symbol") return undefined;
@@ -67,11 +58,13 @@ export function createHandlerProxy(basePath = "."): HandlerProxy {
 
 /**
  * Sets up the global `handlers` object on `globalThis`.
- * Call this once when your client-side code initializes.
  *
  * @param basePath - Base path for loading handler scripts (default: ".")
  */
-export function setupHandlers(basePath = "."): void {
+function setupHandlers(basePath = "."): void {
   // deno-lint-ignore no-explicit-any
   (globalThis as any).handlers = createHandlerProxy(basePath);
 }
+
+// Auto-initialize when loaded in browser
+setupHandlers();

@@ -45,6 +45,12 @@ export interface BuildOptions {
    * @default true
    */
   verbose?: boolean;
+
+  /**
+   * Whether to minify the output JavaScript files.
+   * @default false
+   */
+  minify?: boolean;
 }
 
 /**
@@ -101,6 +107,7 @@ export async function buildScriptFiles(
     publicDir = "./public",
     cleanup = true,
     verbose = true,
+    minify = false,
   } = options;
 
   const log = verbose ? console.log.bind(console) : () => {};
@@ -130,6 +137,34 @@ export async function buildScriptFiles(
 
   performance.mark("buildScriptFiles:buildStart");
   const files = await Promise.all([
+    // Build client.ts as clientFunctions.js
+    (async () => {
+      const clientFunctionsOut = `${publicDir}/clientFunctions.js`;
+      const clientFunctionsSrc = new URL("./client.ts", import.meta.url);
+      
+      // Check if output already exists and is up to date
+      const srcStat = await Deno.stat(clientFunctionsSrc).catch(() => null);
+      const outStat = await Deno.stat(clientFunctionsOut).catch(() => null);
+      const srcMtime = srcStat?.mtime?.getTime() ?? null;
+      const outMtime = outStat?.mtime?.getTime() ?? null;
+      
+      if (srcMtime !== null && outMtime !== null && outMtime >= srcMtime) {
+        log(`clientFunctions.js already exists and is up to date, skipping.`);
+        return "clientFunctions";
+      }
+      
+      const inputCode = await Deno.readTextFile(clientFunctionsSrc);
+      const result = await esbuild.transform(inputCode, {
+        loader: "ts",
+        format: "esm",
+        target: ["esnext"],
+        sourcemap: false,
+        minify,
+      });
+      await Deno.writeTextFile(clientFunctionsOut, result.code);
+      log(`clientFunctions.js written: ${clientFunctionsOut}`);
+      return "clientFunctions";
+    })(),
     ...Array.from(handlers.values()).map(async (handler) => {
       const { filename } = handler;
       log("Registered handler: ", filename);
@@ -144,7 +179,7 @@ export async function buildScriptFiles(
       }
 
       log(`Building file for handler:`, handler.buildCode);
-      const functionCode = await handler.buildCode();
+      const functionCode = await handler.buildCode(minify);
       return Deno.writeTextFile(`${publicDir}/${filename}.js`, functionCode)
         .then(
           () => {
@@ -154,7 +189,7 @@ export async function buildScriptFiles(
         );
     }),
     ...clientFiles.map((entry) =>
-      transpileClientFile(entry.name, clientDir, publicDir, verbose)
+      transpileClientFile(entry.name, clientDir, publicDir, verbose, minify)
     ),
   ]);
   performance.mark("buildScriptFiles:buildEnd");
@@ -225,6 +260,7 @@ export async function transpileClientFile(
   clientDir = "./client",
   publicDir = "./public",
   verbose = true,
+  minify = false,
 ): Promise<string> {
   const log = verbose ? console.log.bind(console) : () => {};
 
@@ -255,6 +291,7 @@ export async function transpileClientFile(
     format: "esm",
     target: ["esnext"],
     sourcemap: false,
+    minify,
   });
 
   await Deno.writeTextFile(outPath, result.code);

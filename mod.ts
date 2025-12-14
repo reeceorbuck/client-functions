@@ -213,8 +213,9 @@ class ClientFunctionImpl<
   /**
    * Build the client-side JavaScript code for this handler.
    * Uses esbuild to transform TypeScript to JavaScript.
+   * @param minify - Whether to minify the output
    */
-  async buildCode(): Promise<string> {
+  async buildCode(minify = false): Promise<string> {
     console.log("Building code for handler: ", this.fn.name);
 
     const registry = getImportRegistry(this.sourceFileUrl);
@@ -238,6 +239,7 @@ class ClientFunctionImpl<
       format: "esm",
       target: ["esnext"],
       sourcemap: false,
+      minify,
     }).catch((err) => {
       console.error("Esbuild transform error: ", err);
       return { code: functionCode };
@@ -272,3 +274,10 @@ export const ClientFunction = ClientFunctionImpl as {
 };
 
 export type { AnyFunction };
+
+export {
+  buildScriptFiles,
+  transpileClientFile,
+  type BuildOptions,
+  type BuildResult,
+} from "./build.ts";

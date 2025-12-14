@@ -41,10 +41,10 @@ const html = `<button onclick="${handleClick.handleClick}">Click me</button>`;
 
 ### Building handler files
 
-Use the build module to compile all registered handlers to JavaScript files:
+Use the build function to compile all registered handlers to JavaScript files:
 
 ```ts
-import { buildScriptFiles } from "@reece/client-functions/build";
+import { buildScriptFiles } from "@reece/client-functions";
 
 // Build all handlers to ./public directory
 const result = await buildScriptFiles({
@@ -52,55 +52,24 @@ const result = await buildScriptFiles({
   publicDir: "./public", // Output directory for .js files
   cleanup: true, // Remove old files no longer in use
   verbose: true, // Log progress
+  minify: false, // Minify output files
 });
 
 console.log("Built files:", result.files);
 console.log("Build time:", result.timings.total, "ms");
 ```
 
+This will also output `clientFunctions.js` to your public directory, which sets up the handler proxy automatically.
+
 ### Client-side
 
-Include the client module in your HTML to enable the lazy-loading handler proxy:
-
-**Option 1: Use the pre-built minified version (recommended for browsers)**
+Include the built `clientFunctions.js` in your HTML to enable the lazy-loading handler proxy:
 
 ```html
-<script type="module">
-  import { setupHandlers } from "https://jsr.io/@reece/client-functions/0.1.0/client.min.js";
-  setupHandlers(); // Sets up globalThis.handlers
-</script>
+<script type="module" src="/public/clientFunctions.js"></script>
 ```
 
-Or copy `client.min.js` to your static files and serve it locally:
-
-```html
-<script type="module">
-  import { setupHandlers } from "/static/client.min.js";
-  setupHandlers("/static/handlers"); // Load handlers from /static/handlers/*.js
-</script>
-```
-
-**Option 2: Import from JSR (for bundlers)**
-
-```html
-<script type="module">
-  import { setupHandlers } from "@reece/client-functions/client";
-  setupHandlers(); // Sets up globalThis.handlers
-</script>
-```
-
-Or if you're bundling your client code:
-
-```ts
-import { setupHandlers } from "@reece/client-functions/client";
-setupHandlers();
-```
-
-You can also specify a custom base path for loading handler scripts:
-
-```ts
-setupHandlers("/static/handlers"); // Will load from /static/handlers/handlerName.js
-```
+The script automatically sets up `globalThis.handlers` when loaded, so your event handlers like `onclick="handlers.handleClick(this, event)"` will work immediately.
 
 ### Importing between client functions
 
@@ -157,7 +126,7 @@ code.
 ### `buildScriptFiles(options?: BuildOptions): Promise<BuildResult>`
 
 Builds all registered client functions and client TypeScript files to
-JavaScript.
+JavaScript. Also builds `clientFunctions.js` from the library's client script.
 
 **Options:**
 
@@ -165,6 +134,7 @@ JavaScript.
 - `publicDir` - Output directory for .js files (default: `"./public"`)
 - `cleanup` - Remove files no longer in use (default: `true`)
 - `verbose` - Log progress to console (default: `true`)
+- `minify` - Minify output JavaScript files (default: `false`)
 
 **Returns:**
 
@@ -172,24 +142,9 @@ JavaScript.
 - `timings` - Object with `scan`, `build`, `cleanup`, and `total` durations in
   ms
 
-### `transpileClientFile(fileName, clientDir?, publicDir?, verbose?): Promise<string>`
+### `transpileClientFile(fileName, clientDir?, publicDir?, verbose?, minify?): Promise<string>`
 
 Transpile a single TypeScript/TSX file to JavaScript. Uses mtime-based caching.
-
-### `HandlerProxy` (client-side)
-
-The type for the global `handlers` object that lazy-loads handler functions on
-demand.
-
-### `setupHandlers(basePath?: string): void`
-
-Sets up the global `handlers` object on `globalThis`. Call this once when your
-client-side code initializes.
-
-### `createHandlerProxy(basePath?: string): HandlerProxy`
-
-Creates a handler proxy without setting it globally. Useful if you need multiple
-proxies or custom setup.
 
 ## License
 
