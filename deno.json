@@ -1,0 +1,32 @@
+{
+  "$schema": "https://jsr.io/schema/config-file.v1.json",
+  "name": "@reece/client-functions",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./client": "./client.ts",
+    "./client.min.js": "./client.min.js",
+    "./build": "./build.ts"
+  },
+  "publish": {
+    "include": [
+      "mod.ts",
+      "client.ts",
+      "client.min.js",
+      "client.min.d.ts",
+      "build.ts",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": []
+  },
+  "tasks": {
+    "build": "deno eval \"import * as esbuild from 'npm:esbuild'; const code = await Deno.readTextFile('./client.ts'); const result = await esbuild.transform(code, { loader: 'ts', format: 'esm', target: ['es2020'], minify: true }); await Deno.writeTextFile('./client.min.js', result.code); esbuild.stop(); console.log('Created client.min.js');\""
+  },
+  "imports": {
+    "esbuild": "npm:esbuild@^0.27.1"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom", "dom.iterable"]
+  }
+}
