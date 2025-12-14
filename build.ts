@@ -141,19 +141,27 @@ export async function buildScriptFiles(
     (async () => {
       const clientFunctionsOut = `${publicDir}/clientFunctions.js`;
       const clientFunctionsSrc = new URL("./client.ts", import.meta.url);
+      const denoJsonUrl = new URL("./deno.json", import.meta.url);
       
-      // Check if output already exists and is up to date
-      const srcStat = await Deno.stat(clientFunctionsSrc).catch(() => null);
-      const outStat = await Deno.stat(clientFunctionsOut).catch(() => null);
-      const srcMtime = srcStat?.mtime?.getTime() ?? null;
-      const outMtime = outStat?.mtime?.getTime() ?? null;
+      // Get the package version
+      const denoJsonText = denoJsonUrl.protocol === "file:"
+        ? await Deno.readTextFile(denoJsonUrl)
+        : await fetch(denoJsonUrl).then((r) => r.text());
+      const { version } = JSON.parse(denoJsonText) as { version: string };
+      const versionComment = `// @reece/client-functions v${version}`;
       
-      if (srcMtime !== null && outMtime !== null && outMtime >= srcMtime) {
-        log(`clientFunctions.js already exists and is up to date, skipping.`);
+      // Check if output exists and has matching version
+      const existingCode = await Deno.readTextFile(clientFunctionsOut).catch(() => null);
+      if (existingCode?.startsWith(versionComment)) {
+        log(`clientFunctions.js already up to date (v${version}), skipping.`);
         return "clientFunctions";
       }
       
-      const inputCode = await Deno.readTextFile(clientFunctionsSrc);
+      // Read source - use fetch for remote URLs, readTextFile for local
+      const inputCode = clientFunctionsSrc.protocol === "file:"
+        ? await Deno.readTextFile(clientFunctionsSrc)
+        : await fetch(clientFunctionsSrc).then((r) => r.text());
+      
       const result = await esbuild.transform(inputCode, {
         loader: "ts",
         format: "esm",
@@ -161,7 +169,10 @@ export async function buildScriptFiles(
         sourcemap: false,
         minify,
       });
-      await Deno.writeTextFile(clientFunctionsOut, result.code);
+      
+      // Prepend version comment to output
+      const outputCode = `${versionComment}\n${result.code}`;
+      await Deno.writeTextFile(clientFunctionsOut, outputCode);
       log(`clientFunctions.js written: ${clientFunctionsOut}`);
       return "clientFunctions";
     })(),
